@@ -14,10 +14,6 @@
 */
 void test_validate_my_username()
 {
-    /**
-     * TODO: Replace the line below with your code here as described above to verify your /conf/username.txt 
-     * config file and my_username() functions are setup properly
-     */
     const char *my_hardcoded_username = my_username();
     char *my_retrieved_username = malloc_username_from_conf_file();
 
