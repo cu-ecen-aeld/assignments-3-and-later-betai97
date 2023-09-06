@@ -15,7 +15,7 @@
 void test_validate_my_username()
 {
     const char *my_hardcoded_username = my_username();
-    char *my_retrieved_username = malloc_username_from_conf_file();
+     char *my_retrieved_username = malloc_username_from_conf_file();
 
-    TEST_ASSERT_TRUE_MESSAGE(my_hardcoded_username, my_retrieved_username);
+    TEST_ASSERT_TRUE_MESSAGE(my_hardcoded_username==my_retrieved_username, "Error");
 }
