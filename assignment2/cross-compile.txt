@@ -1,0 +1,5 @@
+taitbenj@Ubunru:~/assignment-1-betai97$ aarch64-none-linux-gnu-gcc -print-sysroot -v
+Using built-in specs.
+COLLECT_GCC=aarch64-none-linux-gnu-gcc
+COLLECT_LTO_WRAPPER=/home/taitbenj/Downloads/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin/../libexec/gcc/aarch64-none-linux-gnu/10.2.1/lto-wrapper
+/home/taitbenj/Downloads/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin/../aarch64-none-linux-gnu/libc
