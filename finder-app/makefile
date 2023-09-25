@@ -5,6 +5,8 @@ CC      = $(CROSS_COMPILE)gcc
 CFLAGS  = -g
 RM		= rm -f
 
+all: writer
+
 default: writer
 
 writer: writer.c
