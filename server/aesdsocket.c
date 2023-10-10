@@ -72,9 +72,11 @@ int main(int argc, char *argv[])
 	struct addrinfo hints;
 
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;
+	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
+	hints.ai_protocol = 0;
+	hints.ai_addr = NULL;
 	int status;
 
 	if((status = getaddrinfo(NULL, SOCK_SERV_PORT, &hints, &g_servinfo)) != 0) {
