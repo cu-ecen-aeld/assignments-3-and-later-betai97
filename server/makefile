@@ -1,7 +1,7 @@
 # File: makefile
 # Author: Ben Tait
 
-CC      = $(CROSS_COMPILE)gcc
+CC     ?= $(CROSS_COMPILE)gcc
 CFLAGS  = -g3 -Wall -Werror
 RM		= rm -f
 LDFLAGS = -pthread 
