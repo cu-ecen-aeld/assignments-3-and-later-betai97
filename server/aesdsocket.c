@@ -196,13 +196,13 @@ void handle_kill(int sig) {
 }
 
 // Thread for timer
-// A little overkill for basic timer. But when in Rome/thread-ville, or something
 void *timer_thread(void *data) {
 	time_t t;
 	struct tm *tm_p;
 	char time_str[30];
 
 	while(1) {
+		printf("aHELLO\nHaELLO\n");
 		sleep(10);
 		time(&t);
 		tm_p = localtime(&t);
@@ -214,6 +214,8 @@ void *timer_thread(void *data) {
 			fprintf(stderr, "Couldn't open file\n");
 			return NULL;
 		}
+
+		printf("HELLO\nHELLO\n");
 
 		fputs("timestamp:", g_data_file);
 		fputs(time_str, g_data_file);
