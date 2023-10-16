@@ -160,8 +160,7 @@ void handle_kill(int sig) {
 
 	syslog(LOG_DEBUG, "Caught signal, exiting\n");
 
-	while (!SLIST_EMPTY(&g_head))
-    {
+	while (!SLIST_EMPTY(&g_head)) {
         tdata_cur = SLIST_FIRST(&g_head);
         SLIST_REMOVE(&g_head, tdata_cur, tdata, ptrs);
         destroy_tdata(tdata_cur);
