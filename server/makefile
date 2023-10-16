@@ -1,10 +1,11 @@
 # File: makefile
 # Author: Ben Tait
 
-CC     ?= $(CROSS_COMPILE)gcc
-CFLAGS  = -g3 -Wall -Werror
-RM		= rm -f
-LDFLAGS = -pthread 
+CC      ?= $(CROSS_COMPILE)gcc
+CFLAGS  ?= -g3 -Wall -Werror
+RM		?= rm -f
+LDFLAGS ?= -pthread  -lrt
+TARGET ?= aesdsocket
 
 all: aesdsocket
 
