@@ -30,6 +30,7 @@
 int g_sockfd;
 struct addrinfo *g_servinfo;
 FILE *g_data_file;
+pthread_t g_timer_thread;
 pthread_mutex_t g_sockdata_mutex;
 
 SLIST_HEAD(tdata_head, tdata) g_head;
@@ -159,20 +160,12 @@ void handle_kill(int sig) {
 
 	syslog(LOG_DEBUG, "Caught signal, exiting\n");
 
-	SLIST_FOREACH(tdata_cur, &g_head, ptrs) {
-		void *t_ret = NULL;
-		if(pthread_join(tdata_cur->thread, &t_ret) != 0) {
-			fprintf(stderr, "thread join fail\n");
-		} else {
-			struct tdata *tdata_ret = (struct tdata*) t_ret;
-			SLIST_REMOVE(&g_head, tdata_ret, tdata, ptrs);
-			if(tdata_ret->accepted_sock_fd)
-				close(tdata_ret->accepted_sock_fd);
-			if(tdata_ret->dyn_recv_buf != NULL)
-				free(tdata_ret->dyn_recv_buf);
-			destroy_tdata(tdata_ret);
-		}
-	}
+	while (!SLIST_EMPTY(&g_head))
+    {
+        tdata_cur = SLIST_FIRST(&g_head);
+        SLIST_REMOVE(&g_head, tdata_cur, tdata, ptrs);
+        destroy_tdata(tdata_cur);
+    }
 
 	if(g_sockfd)
 		close(g_sockfd);
@@ -188,35 +181,40 @@ void handle_kill(int sig) {
 	pthread_mutex_unlock(&g_sockdata_mutex);
 	pthread_mutex_destroy(&g_sockdata_mutex);
 
+
+	pthread_cancel(g_timer_thread);
+
 	exit(0);
 }
 
 // Thread for timer
-void timer_thread(int s) {
+void *timer_thread(void *data) {
 	time_t t;
 	struct tm *tm_p;
-	char time_str[30];
+	char time_str[30] = {0};
 
-	time(&t);
-	tm_p = localtime(&t);
-	strftime(time_str, sizeof(time_str), "%a, %d %b %Y %T %z", tm_p);
+	while(1) {
+		sleep(10);
 
-	pthread_mutex_lock(&g_sockdata_mutex);
-	g_data_file = fopen(SOCK_DATA_FILE, "a+");
-	if(g_data_file == NULL) {
-		fprintf(stderr, "Couldn't open file\n");
-		return;
+		time(&t);
+		tm_p = localtime(&t);
+		strftime(time_str, sizeof(time_str), "%a, %d %b %Y %T %z", tm_p);
+
+		pthread_mutex_lock(&g_sockdata_mutex);
+		g_data_file = fopen(SOCK_DATA_FILE, "a+");
+		if(g_data_file == NULL) {
+			fprintf(stderr, "Couldn't open file\n");
+			return NULL;
+		}
+
+		fputs("timestamp:", g_data_file);
+		fputs(time_str, g_data_file);
+		fputs("\n", g_data_file);
+		fclose(g_data_file);
+		pthread_mutex_unlock(&g_sockdata_mutex);
+
 	}
 
-	fputs("timestamp:", g_data_file);
-	fputs(time_str, g_data_file);
-	fputs("\n", g_data_file);
-	fclose(g_data_file);
-	pthread_mutex_unlock(&g_sockdata_mutex);
-
-	alarm(10);
-
-	signal(SIGALRM, timer_thread);
 }
 
 int main(int argc, char *argv[])
@@ -226,9 +224,7 @@ int main(int argc, char *argv[])
 	SLIST_INIT(&g_head);
 
 	pthread_mutex_init(&g_sockdata_mutex, NULL);
-
-	signal(SIGALRM, timer_thread);
-	alarm(10);
+	
 
 	// Part A: Set up addrinfo
 
@@ -291,6 +287,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	// Start timer thread
+	pthread_create(&g_timer_thread, NULL, timer_thread, NULL);
+
 	// Step 4: Listen for socket connections
 
 	int listen_res = listen(g_sockfd, MAX_CONNECTIONS);
@@ -308,7 +307,6 @@ int main(int argc, char *argv[])
 	socklen_t sockaddr_len = 0;
 	g_data_file = NULL;
 	int accepted_sock_fd;
-	struct tdata *tdata_cur = NULL;
 
 	while(1) {
 		// Accept connection
@@ -329,24 +327,11 @@ int main(int argc, char *argv[])
 
 		if(pthread_create(&tdata_ptr->thread, NULL, connection_thread_func, (void*) tdata_ptr) != 0) {
 			fprintf(stderr, "Failed to create thread!\n");
+			SLIST_REMOVE(&g_head, tdata_ptr, tdata, ptrs);
 			destroy_tdata(tdata_ptr);
 			continue;
 		}
-
-		SLIST_FOREACH(tdata_cur, &g_head, ptrs) {
-			if(tdata_cur->complete == true) {
-				void *t_ret = NULL;
-				if(pthread_join(tdata_cur->thread, &t_ret) != 0) {
-					fprintf(stderr, "thread join fail\n");
-				} else {
-					struct tdata *tdata_ret = (struct tdata*) t_ret;
-					SLIST_REMOVE(&g_head, tdata_ret, tdata, ptrs);
-					destroy_tdata(tdata_ret);
-				}
-			}
-		}
 		
-
 	}
 
 	return 0;
