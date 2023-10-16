@@ -157,13 +157,18 @@ void *connection_thread_func(void* thread_param) {
 // Free all dynamic memory, close all files & sockets
 void handle_kill(int sig) {
 	struct tdata *tdata_cur = NULL;
+	void *t_ret = NULL;
 
 	syslog(LOG_DEBUG, "Caught signal, exiting\n");
 
 	while (!SLIST_EMPTY(&g_head)) {
         tdata_cur = SLIST_FIRST(&g_head);
-        SLIST_REMOVE(&g_head, tdata_cur, tdata, ptrs);
-        destroy_tdata(tdata_cur);
+        if(pthread_join(tdata_cur->thread, &t_ret) != 0) {
+			fprintf(stderr, "thread join fail. cant free memory without thread. bad!\n");
+		} else {
+	        SLIST_REMOVE(&g_head, tdata_cur, tdata, ptrs);
+	        destroy_tdata(tdata_cur);
+    	}
     }
 
 	if(g_sockfd)
@@ -191,6 +196,10 @@ void *timer_thread(void *data) {
 	time_t t;
 	struct tm *tm_p;
 	char time_str[30] = {0};
+	struct tdata *tdata_cur = NULL;
+	struct tdata **tdata_ptrs = NULL;
+	void *t_ret = NULL;
+	int num_join = 0;
 
 	while(1) {
 		sleep(10);
@@ -212,6 +221,33 @@ void *timer_thread(void *data) {
 		fclose(g_data_file);
 		pthread_mutex_unlock(&g_sockdata_mutex);
 
+		// Mechanism for join of threads while server is still running
+		num_join = 0;
+		tdata_ptrs = NULL;
+		tdata_cur = NULL;
+		t_ret = NULL;
+		SLIST_FOREACH(tdata_cur, &g_head, ptrs) {
+			if(tdata_cur->complete == true) {
+				if(pthread_join(tdata_cur->thread, &t_ret) != 0) {
+					fprintf(stderr, "thread join fail\n");
+				} else {
+					num_join++;
+					tdata_ptrs = (struct tdata**) realloc(tdata_ptrs, sizeof(struct tdata*)*num_join);
+					tdata_ptrs[num_join-1] = tdata_cur;
+					printf("Joined thread on sockfd %d\n", tdata_cur->accepted_sock_fd);
+				}
+			}
+		}
+
+		for(int i=0; i<num_join; i++) {
+			printf("Deleting mem for thread on sockfd %d\n", tdata_ptrs[i]->accepted_sock_fd);
+
+			SLIST_REMOVE(&g_head, tdata_ptrs[i], tdata, ptrs);
+			destroy_tdata(tdata_ptrs[i]);
+		}
+
+		if(tdata_ptrs != NULL)
+			free(tdata_ptrs);
 	}
 
 }
