@@ -30,7 +30,6 @@
 int g_sockfd;
 struct addrinfo *g_servinfo;
 FILE *g_data_file;
-pthread_t g_timer_thread;
 pthread_mutex_t g_sockdata_mutex;
 
 SLIST_HEAD(tdata_head, tdata) g_head;
@@ -189,43 +188,35 @@ void handle_kill(int sig) {
 	pthread_mutex_unlock(&g_sockdata_mutex);
 	pthread_mutex_destroy(&g_sockdata_mutex);
 
-
-	pthread_cancel(g_timer_thread);
-
 	exit(0);
 }
 
 // Thread for timer
-void *timer_thread(void *data) {
+void timer_thread(int s) {
 	time_t t;
 	struct tm *tm_p;
 	char time_str[30];
 
-	while(1) {
-		printf("aHELLO\nHaELLO\n");
-		sleep(10);
-		time(&t);
-		tm_p = localtime(&t);
-		strftime(time_str, sizeof(time_str), "%a, %d %b %Y %T %z", tm_p);
+	time(&t);
+	tm_p = localtime(&t);
+	strftime(time_str, sizeof(time_str), "%a, %d %b %Y %T %z", tm_p);
 
-		pthread_mutex_lock(&g_sockdata_mutex);
-		g_data_file = fopen(SOCK_DATA_FILE, "a+");
-		if(g_data_file == NULL) {
-			fprintf(stderr, "Couldn't open file\n");
-			return NULL;
-		}
-
-		printf("HELLO\nHELLO\n");
-
-		fputs("timestamp:", g_data_file);
-		fputs(time_str, g_data_file);
-		fputs("\n", g_data_file);
-		fclose(g_data_file);
-		pthread_mutex_unlock(&g_sockdata_mutex);
+	pthread_mutex_lock(&g_sockdata_mutex);
+	g_data_file = fopen(SOCK_DATA_FILE, "a+");
+	if(g_data_file == NULL) {
+		fprintf(stderr, "Couldn't open file\n");
+		return;
 	}
 
-	return NULL;
-	
+	fputs("timestamp:", g_data_file);
+	fputs(time_str, g_data_file);
+	fputs("\n", g_data_file);
+	fclose(g_data_file);
+	pthread_mutex_unlock(&g_sockdata_mutex);
+
+	alarm(10);
+
+	signal(SIGALRM, timer_thread);
 }
 
 int main(int argc, char *argv[])
@@ -236,7 +227,8 @@ int main(int argc, char *argv[])
 
 	pthread_mutex_init(&g_sockdata_mutex, NULL);
 
-	pthread_create(&g_timer_thread, NULL, timer_thread, NULL);
+	signal(SIGALRM, timer_thread);
+	alarm(10);
 
 	// Part A: Set up addrinfo
 
