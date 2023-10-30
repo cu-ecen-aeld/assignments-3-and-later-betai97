@@ -74,9 +74,11 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     for(i=0; i<count; i++) {
         cur_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->circ_buf, (*f_pos)+i, &entry_ind);
         if(cur_entry == NULL) {
+            mutex_unlock(&dev->mut);
             return -EFAULT;
         }
         if(copy_to_user(buf+i, &cur_entry->buffptr[entry_ind], 1) != 0) {
+            mutex_unlock(&dev->mut);
             return -EFAULT;
         }
         retval++;
@@ -115,6 +117,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     dev->unterm.buffptr = krealloc(dev->unterm.buffptr, dev->unterm.size+count, GFP_KERNEL);
     if(dev->unterm.buffptr) {
         PDEBUG("Error on krealloc\n");
+        mutex_unlock(&dev->mut);
         return retval;
     }
     memcpy(dev->unterm.buffptr+dev->unterm.size, buf_mem, count);
