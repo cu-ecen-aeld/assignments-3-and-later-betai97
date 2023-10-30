@@ -19,11 +19,14 @@
 #include <time.h>
 #include <sys/time.h>
 
+// Build switch for whether to use our char driver
+#define USE_AESD_CHAR_DEVICE 1
+
 // Macros
 #define SOCK_SERV_PORT "9000"
 #define SOCK_ERR (-1)
 #define MAX_CONNECTIONS (10)
-#define SOCK_DATA_FILE "/var/tmp/aesdsocketdata"
+#define SOCK_DATA_FILE ((USE_AESD_CHAR_DEVICE) ? "/dev/aesdchar" : "/var/tmp/aesdsocketdata")
 #define RECV_BUF_LEN (2048)
 
 // Globals for freeing resources in signal handler
@@ -108,7 +111,9 @@ void *connection_thread_func(void* thread_param) {
 	}
 
 	// Write packet to file
+#ifndef USE_AESD_CHAR_DEVICE
 	pthread_mutex_lock(&g_sockdata_mutex);
+#endif
 	g_data_file = fopen(SOCK_DATA_FILE, "a+");
 	if(g_data_file == NULL) {
 		fprintf(stderr, "Couldn't open file\n");
@@ -119,14 +124,18 @@ void *connection_thread_func(void* thread_param) {
 	dyn_recv_buf = NULL;
 	fclose(g_data_file);
 	g_data_file = NULL;
+#ifndef USE_AESD_CHAR_DEVICE
 	pthread_mutex_unlock(&g_sockdata_mutex);
+#endif
 
 	// Send back data from file
 	// Note: line-by-line read code learned from https://stackoverflow.com/questions/3501338/c-read-file-line-by-line
 	char *line = NULL;
 	size_t len = 0;
 	ssize_t read;
+#ifndef USE_AESD_CHAR_DEVICE
 	pthread_mutex_lock(&g_sockdata_mutex);
+#endif
 	g_data_file = fopen(SOCK_DATA_FILE, "r");
 	if(g_data_file == NULL) {
 		fprintf(stderr, "Couldn't open file\n");
@@ -139,7 +148,9 @@ void *connection_thread_func(void* thread_param) {
 	}
 
 	fclose(g_data_file);
+#ifndef USE_AESD_CHAR_DEVICE
 	pthread_mutex_unlock(&g_sockdata_mutex);
+#endif
 	g_data_file = NULL;
 	free(line);
 
@@ -177,12 +188,12 @@ void handle_kill(int sig) {
 		fclose(g_data_file);
 	if(g_servinfo != NULL)
 		freeaddrinfo(g_servinfo);
-	pthread_mutex_lock(&g_sockdata_mutex);
+#ifndef USE_AESD_CHAR_DEVICE
 	if(remove(SOCK_DATA_FILE) != 0) {
 		fprintf(stderr, "Error deleting %s\n", SOCK_DATA_FILE);
 		exit(1);
 	}
-	pthread_mutex_unlock(&g_sockdata_mutex);
+#endif
 	pthread_mutex_destroy(&g_sockdata_mutex);
 
 
@@ -193,16 +204,21 @@ void handle_kill(int sig) {
 
 // Thread for timer
 void *timer_thread(void *data) {
-	time_t t;
-	struct tm *tm_p;
-	char time_str[30] = {0};
 	struct tdata *tdata_cur = NULL;
 	struct tdata **tdata_ptrs = NULL;
 	void *t_ret = NULL;
 	int num_join = 0;
 
+#ifndef USE_AESD_CHAR_DEVICE
+	time_t t;
+	struct tm *tm_p;
+	char time_str[30] = {0};
+#endif
+
 	while(1) {
 		sleep(10);
+
+#ifndef USE_AESD_CHAR_DEVICE
 
 		time(&t);
 		tm_p = localtime(&t);
@@ -220,6 +236,8 @@ void *timer_thread(void *data) {
 		fputs("\n", g_data_file);
 		fclose(g_data_file);
 		pthread_mutex_unlock(&g_sockdata_mutex);
+
+#endif
 
 		// Mechanism for join of threads while server is still running
 		num_join = 0;

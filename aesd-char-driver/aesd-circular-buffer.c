@@ -104,7 +104,8 @@ void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const s
 
 
     DEBUG("buffer: {\n");
-    for(int i=0; i<10; i++) {
+    int i;
+    for(i=0; i<10; i++) {
         if(buffer->entry[i].buffptr != NULL) {
             DEBUG("%c%c[%d] %s", (i==buffer->in_offs)?'i':' ', \
                                 (i==buffer->out_offs)?'o':' ', \
