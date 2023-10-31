@@ -133,7 +133,8 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     if(cur_entry == NULL) {
         mutex_unlock(&dev->mut);
         PDEBUG ("bad read\n");
-        return count;
+        *f_pos = 0;
+        return 0;
     }
 
     cnt = cur_entry->size - entry_ind;
