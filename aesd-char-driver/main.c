@@ -68,13 +68,16 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
      *  handle read
      */
 
-    mutex_lock(&dev->mut);
+    if(mutex_lock_interruptible(&dev->mut) != 0) {
+        PDEBUG("mut lock err!\n");
+        return -ERESTARTSYS;
+    }
 
     cur_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->circ_buf, *f_pos, &entry_ind);
     if(cur_entry == NULL) {
-        mutex_unlock(&dev->mut);
         PDEBUG ("bad read\n");
         *f_pos = 0;
+        mutex_unlock(&dev->mut);
         return 0;
     }
 
@@ -117,11 +120,16 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
     if(copy_from_user(buf_mem, buf, count) != 0) {
         PDEBUG("Error on copy from user\n");
+        kfree(buf_mem);
         retval = -EFAULT;
         return retval;
     }
 
-    mutex_lock(&dev->mut);
+    if(mutex_lock_interruptible(&dev->mut) != 0) {
+        PDEBUG("mut lock err!\n");
+        kfree(buf_mem);
+        return -ERESTARTSYS;
+    }
 
     dev->unterm.buffptr = krealloc(dev->unterm.buffptr, dev->unterm.size+count, GFP_KERNEL);
     if(dev->unterm.buffptr == NULL) {
