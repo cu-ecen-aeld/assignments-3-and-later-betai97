@@ -132,7 +132,8 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     cur_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->circ_buf, *f_pos, &entry_ind);
     if(cur_entry == NULL) {
         mutex_unlock(&dev->mut);
-        return -EFAULT;
+        PDEBUG ("bad read\n");
+        return count;
     }
 
     cnt = cur_entry->size - entry_ind;
@@ -140,7 +141,9 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
         cnt = count;
 
     *f_pos += cnt;
+    PDEBUG("%d bytes of %d: %s\n", cnt, count);
     if(copy_to_user(buf, &dev->circ_buf+entry_ind, cnt) != 0) {
+        PDEBUG("copy_to_user fail\n");
         mutex_unlock(&dev->mut);
         return -EFAULT;
     }
