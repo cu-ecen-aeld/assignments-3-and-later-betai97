@@ -11,7 +11,7 @@
 #ifdef __KERNEL__
 #include <linux/string.h>
 #include <linux/printk.h>
-#define DEBUG(...) //printk(__VA_ARGS__)
+#define DEBUG(...) printk(__VA_ARGS__)
 #else
 #include <string.h>
 #include <stdio.h>
@@ -45,11 +45,11 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
     index = buffer->out_offs;
     cur = &buffer->entry[index];
     do {
-        DEBUG("Iter [%d] of aesd_circular_buffer_find_entry_offset_for_fpos\n", index);
-        DEBUG("char_offset: %d\n", char_offset);
-        DEBUG("cur_buf_size: %d\n", cur_buf_size);
-        DEBUG("cur->size: %d\n", cur->size);
-        DEBUG("char_offset: %d\n", char_offset);
+        // DEBUG("Iter [%d] of aesd_circular_buffer_find_entry_offset_for_fpos\n", index);
+        // DEBUG("char_offset: %d\n", char_offset);
+        // DEBUG("cur_buf_size: %d\n", cur_buf_size);
+        // DEBUG("cur->size: %d\n", cur->size);
+        // DEBUG("char_offset: %d\n", char_offset);
         if(char_offset >= cur_buf_size && char_offset < (cur_buf_size + cur->size)) {
             if((char_offset - cur_buf_size) >= cur->size) {
                 DEBUG("Couldn't find requested global offset %d\n", char_offset);
@@ -118,9 +118,9 @@ void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const s
     int i;
     for(i=0; i<10; i++) {
         if(buffer->entry[i].buffptr != NULL) {
-            DEBUG("%c%c[%d] %s", (i==buffer->in_offs)?'i':' ', \
+            DEBUG("%c%c[%d] %.*s\n", (i==buffer->in_offs)?'i':' ', \
                                 (i==buffer->out_offs)?'o':' ', \
-                                i, buffer->entry[i].buffptr);
+                                i, uffer->entry[i].size, buffer->entry[i].buffptr);
         }
     }
     DEBUG("}\n");
