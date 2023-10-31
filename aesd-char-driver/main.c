@@ -75,14 +75,21 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
         cur_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->circ_buf, (*f_pos)+i, &entry_ind);
         if(cur_entry == NULL) {
             mutex_unlock(&dev->mut);
+            *f_pos = retval;
             return -EFAULT;
         }
+        PDEBUG("char: %c\n", cur_entry->buffptr[entry_ind]);
+        PDEBUG("count: %d\n", count);
+        PDEBUG("%x\n", cur_entry);
         if(copy_to_user(buf+i, &cur_entry->buffptr[entry_ind], 1) != 0) {
             mutex_unlock(&dev->mut);
+            *f_pos = retval;
             return -EFAULT;
         }
         retval++;
     }
+
+    *f_pos = retval;
 
     mutex_unlock(&dev->mut);
 
@@ -115,7 +122,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     mutex_lock(&dev->mut);
 
     dev->unterm.buffptr = krealloc(dev->unterm.buffptr, dev->unterm.size+count, GFP_KERNEL);
-    if(dev->unterm.buffptr) {
+    if(dev->unterm.buffptr == NULL) {
         PDEBUG("Error on krealloc\n");
         mutex_unlock(&dev->mut);
         return retval;
@@ -126,15 +133,17 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
     if((term_pos = strchr(dev->unterm.buffptr, '\n')) != NULL) { // handle terminated case
         // free circ_buf mem if needed
+        PDEBUG("%x\n", dev->circ_buf.full);
         if(dev->circ_buf.full) {
             kfree(dev->circ_buf.entry[dev->circ_buf.in_offs].buffptr);
         }
 
         // add new entry to circ_buf
-        struct aesd_buffer_entry *add_entry;
+        struct aesd_buffer_entry *add_entry = kmalloc(sizeof(struct aesd_buffer_entry *), GFP_KERNEL);
         add_entry->size = dev->unterm.size;
         add_entry->buffptr = dev->unterm.buffptr;
         aesd_circular_buffer_add_entry(&dev->circ_buf, add_entry);
+        kfree(add_entry);
 
         // clear unterm
         dev->unterm.size = 0;
