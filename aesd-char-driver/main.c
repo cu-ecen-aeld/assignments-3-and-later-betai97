@@ -54,19 +54,74 @@ int aesd_release(struct inode *inode, struct file *filp)
     return 0;
 }
 
+// ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
+//                 loff_t *f_pos)
+// {
+//     ssize_t retval = 0;
+//     struct aesd_dev *dev = filp->private_data;
+//     struct aesd_buffer_entry *cur_entry;
+//     size_t entry_ind;
+//     int i = 0, copied=0;
+//     int limit = 10;
+
+//     PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
+
+//     char *read_buf;
+
+//     /**
+//      *  handle read
+//      */
+
+//     mutex_lock(&dev->mut);
+
+//     for(i=0; i<limit; i++) {
+//         read_buf = krealloc(read_buf, 1+i, GFP_KERNEL);
+//         PDEBUG("Read iteration [%d]\n", i);
+//         cur_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->circ_buf, *f_pos+i, &entry_ind);
+//         if(cur_entry == NULL) {
+//             PDEBUG("found null entry\n");
+//             if(copied==0) {
+//                 return -EFAULT;
+//             } else {
+//                 break;
+//             }
+//         }
+        
+//         read_buf[i] = cur_entry->buffptr[entry_ind];
+//         copied++;
+//     }
+
+//     PDEBUG("Finished iterating. Now do copy_to_user of %d bytes\n", copied);
+//     PDEBUG("copying address %x to address %x\n", read_buf, buf);
+
+//     if(copy_to_user(buf, read_buf, copied) != 0) {
+//             PDEBUG("copy_to_user() fail\n");
+//             mutex_unlock(&dev->mut);
+//             *f_pos = retval;
+//             kfree(read_buf);
+//             return -EFAULT;
+//     }
+
+//     kfree(read_buf);
+
+//     *f_pos += copied;
+
+//     mutex_unlock(&dev->mut);
+
+//     PDEBUG("aesd_read completed\n");
+
+//     return copied;
+// }
+
 ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
                 loff_t *f_pos)
 {
-    ssize_t retval = 0;
     struct aesd_dev *dev = filp->private_data;
-    struct aesd_buffer_entry *cur_entry;
     size_t entry_ind;
-    int i = 0, copied=0;
-    int limit = 10;
+    struct aesd_buffer_entry *cur_entry;
+    int cnt = 0;
 
     PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
-
-    char *read_buf;
 
     /**
      *  handle read
@@ -74,43 +129,27 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
 
     mutex_lock(&dev->mut);
 
-    for(i=0; i<limit; i++) {
-        read_buf = krealloc(read_buf, 1+i, GFP_KERNEL);
-        PDEBUG("Read iteration [%d]\n", i);
-        cur_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->circ_buf, *f_pos+i, &entry_ind);
-        if(cur_entry == NULL) {
-            PDEBUG("found null entry\n");
-            if(copied==0) {
-                return -EFAULT;
-            } else {
-                break;
-            }
-        }
-        
-        read_buf[i] = cur_entry->buffptr[entry_ind];
-        copied++;
+    cur_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->circ_buf, *f_pos, &entry_ind);
+    if(cur_entry == NULL) {
+        mutex_unlock(&dev->mut);
+        return -EFAULT;
     }
 
-    PDEBUG("Finished iterating. Now do copy_to_user of %d bytes\n", copied);
-    PDEBUG("copying address %x to address %x\n", read_buf, buf);
+    cnt = cur_entry->size - entry_ind;
+    if(cnt>count)
+        cnt = count;
 
-    if(copy_to_user(buf, read_buf, copied) != 0) {
-            PDEBUG("copy_to_user() fail\n");
-            mutex_unlock(&dev->mut);
-            *f_pos = retval;
-            kfree(read_buf);
-            return -EFAULT;
+    *f_pos += cnt;
+    if(copy_to_user(buf, &dev->circ_buf+entry_ind, cnt) != 0) {
+        mutex_unlock(&dev->mut);
+        return -EFAULT;
     }
-
-    kfree(read_buf);
-
-    *f_pos += copied;
 
     mutex_unlock(&dev->mut);
 
     PDEBUG("aesd_read completed\n");
 
-    return copied;
+    return cnt;
 }
 
 ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
@@ -156,7 +195,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
         // add new entry to circ_buf
         struct aesd_buffer_entry *add_entry = kmalloc(sizeof(struct aesd_buffer_entry *), GFP_KERNEL);
-        add_entry->size = dev->unterm.size;
+        add_entry->size = dev->unterm.size-1;
         add_entry->buffptr = dev->unterm.buffptr;
         aesd_circular_buffer_add_entry(&dev->circ_buf, add_entry);
         kfree(add_entry);
