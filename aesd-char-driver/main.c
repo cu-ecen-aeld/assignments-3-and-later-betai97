@@ -76,7 +76,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     for(i=0; i<count; i++) {
         // read_buf = krealloc(read_buf, 1+i, GFP_KERNEL);
         PDEBUG("Read iteration [%d]\n", i);
-        cur_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->circ_buf, i, &entry_ind);
+        cur_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->circ_buf, *f_pos+i, &entry_ind);
         if(cur_entry == NULL) {
             PDEBUG("found null entry\n");
             if(copied==0) {
@@ -111,7 +111,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
 
     // kfree(read_buf);
 
-    *f_pos = copied;
+    *f_pos += copied;
 
     mutex_unlock(&dev->mut);
 
