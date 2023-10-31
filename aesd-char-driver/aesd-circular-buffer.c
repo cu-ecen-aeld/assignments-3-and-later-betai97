@@ -52,7 +52,7 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
         // DEBUG("char_offset: %d\n", char_offset);
         if(char_offset >= cur_buf_size && char_offset < (cur_buf_size + cur->size)) {
             if((char_offset - cur_buf_size) >= cur->size) {
-                DEBUG("Couldn't find requested global offset %d\n", char_offset);
+                DEBUG("Couldn't find requested global offset %d\n", (int)char_offset);
                 return NULL;
             }
             *entry_offset_byte_rtn = char_offset - cur_buf_size;
