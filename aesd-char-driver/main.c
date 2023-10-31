@@ -93,12 +93,14 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     PDEBUG("Finished iterating. Now do copy_to_user of %d bytes\n", copied);
     PDEBUG("copying address %x to address %x\n", read_buf, buf);
 
-    if(copy_to_user(buf, read_buf, copied) != 0) {
-            PDEBUG("copy_to_user() fail\n");
-            mutex_unlock(&dev->mut);
-            *f_pos = retval;
-            kfree(read_buf);
-            return -EFAULT;
+    for(i=0; i<copied; i++) {
+        if(copy_to_user(buf+i, read_buf+i, 1) != 0) {
+                PDEBUG("copy_to_user() fail\n");
+                mutex_unlock(&dev->mut);
+                *f_pos = retval;
+                kfree(read_buf);
+                return -EFAULT;
+        }
     }
 
     kfree(read_buf);
