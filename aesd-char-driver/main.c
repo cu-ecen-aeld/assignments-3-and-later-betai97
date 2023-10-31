@@ -87,7 +87,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
         cnt = count;
 
     *f_pos += cnt;
-    PDEBUG("%d bytes of %d: %s\n", cnt, count);
+    PDEBUG("%d bytes of %d\n", cnt, count);
     PDEBUG("%s\n", cur_entry->buffptr+entry_ind);
     if(copy_to_user(buf, cur_entry->buffptr+entry_ind, cnt) != 0) {
         PDEBUG("copy_to_user fail\n");
