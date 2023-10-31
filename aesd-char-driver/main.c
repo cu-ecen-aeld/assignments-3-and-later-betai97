@@ -179,7 +179,6 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         return retval;
     }
 
-
     mutex_lock(&dev->mut);
 
     dev->unterm.buffptr = krealloc(dev->unterm.buffptr, dev->unterm.size+count, GFP_KERNEL);
@@ -201,6 +200,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         // add new entry to circ_buf
         struct aesd_buffer_entry *add_entry = kmalloc(sizeof(struct aesd_buffer_entry *), GFP_KERNEL);
         add_entry->size = dev->unterm.size;
+        PDEBUG("add_entry size: %d\n", add_entry->size);
         add_entry->buffptr = dev->unterm.buffptr;
         aesd_circular_buffer_add_entry(&dev->circ_buf, add_entry);
         kfree(add_entry);
