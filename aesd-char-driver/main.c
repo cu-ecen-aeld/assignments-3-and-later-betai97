@@ -200,7 +200,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
         // add new entry to circ_buf
         struct aesd_buffer_entry *add_entry = kmalloc(sizeof(struct aesd_buffer_entry *), GFP_KERNEL);
-        add_entry->size = dev->unterm.size-1;
+        add_entry->size = dev->unterm.size;
         add_entry->buffptr = dev->unterm.buffptr;
         aesd_circular_buffer_add_entry(&dev->circ_buf, add_entry);
         kfree(add_entry);
