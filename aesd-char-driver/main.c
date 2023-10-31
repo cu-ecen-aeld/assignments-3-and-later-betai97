@@ -62,7 +62,6 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     struct aesd_buffer_entry *cur_entry;
     size_t entry_ind;
     int i = 0, copied=0;
-    int limit=5;
 
     PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
 
@@ -74,7 +73,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
 
     mutex_lock(&dev->mut);
 
-    for(i=0; i<limit; i++) {
+    for(i=0; i<count; i++) {
         read_buf = krealloc(read_buf, 1+i, GFP_KERNEL);
         PDEBUG("Read iteration [%d]\n", i);
         cur_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->circ_buf, i, &entry_ind);
