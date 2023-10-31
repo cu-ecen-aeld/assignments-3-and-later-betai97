@@ -66,7 +66,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
 
     PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
 
-    // char *read_buf;
+    char *read_buf;
 
     /**
      *  handle read
@@ -74,42 +74,35 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
 
     mutex_lock(&dev->mut);
 
-    // for(i=0; i<limit; i++) {
-    //     read_buf = krealloc(read_buf, 1+i, GFP_KERNEL);
-    //     PDEBUG("Read iteration [%d]\n", i);
-    //     cur_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->circ_buf, i, &entry_ind);
-    //     if(cur_entry == NULL) {
-    //         PDEBUG("found null entry\n");
-    //         if(copied==0) {
-    //             return -EFAULT;
-    //         } else {
-    //             break;
-    //         }
-    //     }
-        
-    //     read_buf[i] = cur_entry->buffptr[entry_ind];
-    //     copied++;
-    // }
-
-    // PDEBUG("Finished iterating. Now do copy_to_user of %d bytes\n", copied);
-    // PDEBUG("copying address %x to address %x\n", read_buf, buf);
-
-    cur_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->circ_buf, *f_pos, &entry_ind);
-    if(cur_entry == NULL) {
-        PDEBUG("found null entry\n");
-            return -EFAULT;
+    for(i=0; i<limit; i++) {
+        read_buf = krealloc(read_buf, 1+i, GFP_KERNEL);
+        PDEBUG("Read iteration [%d]\n", i);
+        cur_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->circ_buf, i, &entry_ind);
+        if(cur_entry == NULL) {
+            PDEBUG("found null entry\n");
+            if(copied==0) {
+                return -EFAULT;
+            } else {
+                break;
+            }
         }
-    copied=1;
+        
+        read_buf[i] = cur_entry->buffptr[entry_ind];
+        copied++;
+    }
 
-    if(copy_to_user(buf, &cur_entry->buffptr[entry_ind], copied) != 0) {
+    PDEBUG("Finished iterating. Now do copy_to_user of %d bytes\n", copied);
+    PDEBUG("copying address %x to address %x\n", read_buf, buf);
+
+    if(copy_to_user(buf, read_buf, copied) != 0) {
             PDEBUG("copy_to_user() fail\n");
             mutex_unlock(&dev->mut);
             *f_pos = retval;
-            // kfree(read_buf);
+            kfree(read_buf);
             return -EFAULT;
     }
 
-    // kfree(read_buf);
+    kfree(read_buf);
 
     *f_pos += copied;
 
