@@ -11,7 +11,7 @@
 #ifdef __KERNEL__
 #include <linux/string.h>
 #include <linux/printk.h>
-#define DEBUG(...) printk(__VA_ARGS__)
+#define DEBUG(...) //printk(__VA_ARGS__)
 #else
 #include <string.h>
 #include <stdio.h>
