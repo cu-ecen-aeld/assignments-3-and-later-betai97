@@ -61,11 +61,11 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     struct aesd_dev *dev = filp->private_data;
     struct aesd_buffer_entry *cur_entry;
     size_t entry_ind;
-    int i = 0;
+    int i = 0, copied=0;
 
     PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
 
-    char *read_buf = kmalloc(count, GFP_KERNEL);
+    char *read_buf;
 
     /**
      *  handle read
@@ -74,21 +74,26 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     mutex_lock(&dev->mut);
 
     for(i=0; i<count; i++) {
+        read_buf = krealloc(read_buf, 1+i, GFP_KERNEL);
         PDEBUG("Read iteration [%d]\n", i);
-        cur_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->circ_buf, (*f_pos)+i, &entry_ind);
+        cur_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->circ_buf, i, &entry_ind);
         if(cur_entry == NULL) {
-            mutex_unlock(&dev->mut);
-            *f_pos = i;
-            return -EFAULT;
+            PDEBUG("found null entry\n");
+            if(copied==0) {
+                return -EFAULT;
+            } else {
+                break;
+            }
         }
         
         read_buf[i] = cur_entry->buffptr[entry_ind];
+        copied++;
     }
 
-    PDEBUG("Finished iterating. Now do copy_to_user\n");
+    PDEBUG("Finished iterating. Now do copy_to_user of %d bytes\n", copied);
     PDEBUG("copying address %x to address %x\n", read_buf, buf);
 
-    if(copy_to_user(buf, read_buf, count) != 0) {
+    if(copy_to_user(buf, read_buf, copied) != 0) {
             PDEBUG("copy_to_user() fail\n");
             mutex_unlock(&dev->mut);
             *f_pos = retval;
@@ -98,13 +103,13 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
 
     kfree(read_buf);
 
-    *f_pos = count;
+    *f_pos += copied;
 
     mutex_unlock(&dev->mut);
 
     PDEBUG("aesd_read completed\n");
 
-    return count;
+    return copied;
 }
 
 ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,

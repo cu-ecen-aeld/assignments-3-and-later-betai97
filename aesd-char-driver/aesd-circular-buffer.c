@@ -11,7 +11,7 @@
 #ifdef __KERNEL__
 #include <linux/string.h>
 #include <linux/printk.h>
-#define DEBUG(...)
+#define DEBUG(...) printk(__VA_ARGS__)
 #else
 #include <string.h>
 #include <stdio.h>
@@ -38,14 +38,19 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
 
     // null pointer checks
     if(buffer == NULL || entry_offset_byte_rtn == NULL) {
+        DEBUG("Passed NULL!\n");
         return NULL;
     }
 
     index = buffer->out_offs;
     cur = &buffer->entry[index];
     do {
+        DEBUG("Iter [%d] of aesd_circular_buffer_find_entry_offset_for_fpos\n", index);
+        DEBUG("char_offset: %d\n", char_offset);
+        DEBUG("cur_buf_size: %d\n", cur_buf_size);
+        DEBUG("cur->size: %d\n", cur->size);
+        DEBUG("char_offset: %d\n", char_offset);
         if(char_offset >= cur_buf_size && char_offset < (cur_buf_size + cur->size)) {
-            DEBUG("cur->size: %d\n", cur->size);
             if((char_offset - cur_buf_size) >= cur->size) {
                 DEBUG("Couldn't find requested global offset %d\n", char_offset);
                 return NULL;
