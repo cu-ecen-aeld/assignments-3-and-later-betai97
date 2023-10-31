@@ -111,7 +111,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
 
     // kfree(read_buf);
 
-    *f_pos += copied;
+    *f_pos = copied;
 
     mutex_unlock(&dev->mut);
 
