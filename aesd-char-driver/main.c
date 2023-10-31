@@ -144,7 +144,8 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
 
     *f_pos += cnt;
     PDEBUG("%d bytes of %d: %s\n", cnt, count);
-    if(copy_to_user(buf, &dev->circ_buf+entry_ind, cnt) != 0) {
+    PDEBUG("%s\n", cur_entry->buffptr+entry_ind);
+    if(copy_to_user(buf, cur_entry->buffptr+entry_ind, cnt) != 0) {
         PDEBUG("copy_to_user fail\n");
         mutex_unlock(&dev->mut);
         return -EFAULT;
