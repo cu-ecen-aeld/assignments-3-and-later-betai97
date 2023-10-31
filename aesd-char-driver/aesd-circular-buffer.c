@@ -120,7 +120,7 @@ void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const s
         if(buffer->entry[i].buffptr != NULL) {
             DEBUG("%c%c[%d] %.*s\n", (i==buffer->in_offs)?'i':' ', \
                                 (i==buffer->out_offs)?'o':' ', \
-                                i, uffer->entry[i].size, buffer->entry[i].buffptr);
+                                i, buffer->entry[i].size, buffer->entry[i].buffptr);
         }
     }
     DEBUG("}\n");
