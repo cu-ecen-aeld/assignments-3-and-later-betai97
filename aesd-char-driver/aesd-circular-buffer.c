@@ -57,7 +57,7 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
             }
             *entry_offset_byte_rtn = char_offset - cur_buf_size;
             DEBUG("For global offset %d, found offset %d\n", (int)char_offset, (int)*entry_offset_byte_rtn);
-            DEBUG("Inside of string: %.*s\n", cur->size, cur->buffptr);
+            DEBUG("Inside of string: %.*s\n", (int)cur->size, cur->buffptr);
             return cur;
         }
 
@@ -120,7 +120,7 @@ void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const s
         if(buffer->entry[i].buffptr != NULL) {
             DEBUG("%c%c[%d] %.*s\n", (i==buffer->in_offs)?'i':' ', \
                                 (i==buffer->out_offs)?'o':' ', \
-                                i, buffer->entry[i].size, buffer->entry[i].buffptr);
+                                i, (int)buffer->entry[i].size, buffer->entry[i].buffptr);
         }
     }
     DEBUG("}\n");
