@@ -102,6 +102,17 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     return cnt;
 }
 
+int isNewlinePresent(char *str, int n) {
+    int i;
+    for (i=0; i<n; i++) {
+        if(str[i] == '\n') {
+            return 1;
+        }
+    }
+
+    return 0;
+} 
+
 ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
                 loff_t *f_pos)
 {
@@ -141,7 +152,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     kfree(buf_mem);
     dev->unterm.size = dev->unterm.size+count;
 
-    if((term_pos = strchr(dev->unterm.buffptr, '\n')) != NULL) { // handle terminated case
+    if(isNewlinePresent(dev->unterm.buffptr, dev->unterm.size) != 0) { // handle terminated case
         // free circ_buf mem if needed
         if(dev->circ_buf.full) {
             kfree(dev->circ_buf.entry[dev->circ_buf.in_offs].buffptr);
