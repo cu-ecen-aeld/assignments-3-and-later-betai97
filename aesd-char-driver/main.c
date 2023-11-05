@@ -166,6 +166,9 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         aesd_circular_buffer_add_entry(&dev->circ_buf, add_entry);
         kfree(add_entry);
 
+        // Update f_pos
+        *f_pos += dev->unterm.size;
+
         // clear unterm
         dev->unterm.size = 0;
         dev->unterm.buffptr = NULL;
@@ -175,12 +178,46 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
     return count;
 }
+
+// Implement fixed-size llseek() discussed in assignment course video
+loff_t aesd_llseek(struct file *filp, loff_t off, int whence) 
+{
+    ssize_t retval = -EFAULT;
+    struct aesd_dev *dev = filp->private_data;
+    struct aesd_buffer_entry *entry;
+    int i = 0, circ_buf_size = 0;
+
+    PDEBUG("llseek type %d with offset %lld", whence, off);
+
+    // tally current circular buffer size
+    AESD_CIRCULAR_BUFFER_FOREACH(entry, &dev->circ_buf, i) {
+        if(entry->buffptr != NULL) {
+            circ_buf_size += entry->size;
+        }
+    }
+
+    // lock cbuffer access
+    if(mutex_lock_interruptible(&dev->mut) != 0) {
+        PDEBUG("llseek: mut lock err!\n");
+        return -ERESTARTSYS;
+    }
+
+    // perform seek
+    retval = fixed_size_llseek(filp, off, whence, circ_buf_size);
+
+    // unlock cbuffer access
+    mutex_unlock(&dev->mut);
+
+    return retval;
+}
+
 struct file_operations aesd_fops = {
     .owner =    THIS_MODULE,
     .read =     aesd_read,
     .write =    aesd_write,
     .open =     aesd_open,
     .release =  aesd_release,
+    .llseek =   aesd_llseek,
 };
 
 static int aesd_setup_cdev(struct aesd_dev *dev)
@@ -242,7 +279,9 @@ void aesd_cleanup_module(void)
     int i;
 
     AESD_CIRCULAR_BUFFER_FOREACH(entry, &aesd_device.circ_buf, i) {
-        kfree(entry->buffptr);
+        if(entry->buffptr != NULL) {
+            kfree(entry->buffptr);
+        }
     }
 
     unregister_chrdev_region(devno, 1);
