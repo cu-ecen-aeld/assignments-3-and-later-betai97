@@ -43,4 +43,6 @@ struct aesd_seekto {
  */
 #define AESDCHAR_IOC_MAXNR 1
 
+#define SOME_REASONABLE_CUTOFF_VALUE (10000)
+
 #endif /* AESD_IOCTL_H */

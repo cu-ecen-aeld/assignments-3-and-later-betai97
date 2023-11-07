@@ -18,6 +18,8 @@
 #include <stdbool.h>
 #include <time.h>
 #include <sys/time.h>
+#include <string.h>
+#include "../aesd-char-driver/aesd_ioctl.h"
 
 // Build switch for whether to use our char driver
 #define USE_AESD_CHAR_DEVICE 1
@@ -92,6 +94,8 @@ void *connection_thread_func(void* thread_param) {
 	int recv_size_tot = 0;
 	int contains_newlin = 0;
 	char recv_buf[RECV_BUF_LEN] = {0};
+	struct aesd_seekto seekto;
+	int ioc_ret = 0, ioc_fd = 0;;
 	while(1) {
 		recv_size = (int) recv(tdata_ptr->accepted_sock_fd, recv_buf, RECV_BUF_LEN, 0);
 		recv_size_tot += recv_size;
@@ -110,6 +114,24 @@ void *connection_thread_func(void* thread_param) {
 		memset(recv_buf, 0, RECV_BUF_LEN);
 	}
 
+#ifdef USE_AESD_CHAR_DEVICE
+	if(strncmp(dyn_recv_buf, "AESDCHAR_IOCSEEKTO", 18) == 0) {
+		seekto.write_cmd = dyn_recv_buf[19] - '0';
+		seekto.write_cmd_offset = dyn_recv_buf[21] - '0';
+
+		g_data_file = fopen(SOCK_DATA_FILE, "r");
+		ioc_fd = fileno(g_data_file);
+
+		ioc_ret = ioctl(ioc_fd, AESDCHAR_IOCSEEKTO, &seekto);
+
+		if(ioc_ret != 0) {
+			fprintf(stderr, "ioctl err: %d\n", ioc_ret);
+		}
+
+		goto after_write;
+	}
+#endif
+
 	// Write packet to file
 #ifndef USE_AESD_CHAR_DEVICE
 	pthread_mutex_lock(&g_sockdata_mutex);
@@ -120,6 +142,9 @@ void *connection_thread_func(void* thread_param) {
 		return thread_param;
 	}
 	fwrite(dyn_recv_buf, 1, recv_size_tot, g_data_file);
+
+after_write:
+
 	free(dyn_recv_buf);
 	dyn_recv_buf = NULL;
 	fclose(g_data_file);
