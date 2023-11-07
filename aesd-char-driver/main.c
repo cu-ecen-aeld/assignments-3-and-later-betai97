@@ -239,6 +239,8 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
     if(_IOC_NR(cmd) > AESDCHAR_IOC_MAXNR)
         return -ENOTTY;
 
+    PDEBUG("ioctl cmd passed validity checks\n");
+
     // Integrity checks on passed data
     if (_IOC_DIR(cmd) & _IOC_READ)
         err = !access_ok_wrapper(VERIFY_WRITE, (void __user *)arg, _IOC_SIZE(cmd));
@@ -246,6 +248,8 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         err =  !access_ok_wrapper(VERIFY_READ, (void __user *)arg, _IOC_SIZE(cmd));
     if (err)
         return -EFAULT;
+
+    PDEBUG("ioctl cmd passed integrity checks\n");
 
     switch(cmd) {
         case AESDCHAR_IOCSEEKTO:
@@ -302,6 +306,11 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
         default:
             return -ENOTTY;
+    }
+
+    if(err == 0) {
+        PDEBUG("Successful completion of ioctl\n");
+        PDEBUG("f_pos_off was %lld\n", f_pos_off);
     }
 
     return err;

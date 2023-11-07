@@ -118,6 +118,7 @@ void *connection_thread_func(void* thread_param) {
 	if(strncmp(dyn_recv_buf, "AESDCHAR_IOCSEEKTO", 18) == 0) {
 		seekto.write_cmd = dyn_recv_buf[19] - '0';
 		seekto.write_cmd_offset = dyn_recv_buf[21] - '0';
+		printf("ioctl write cmd: %u, write_cmd_off: %u\n", seekto.write_cmd, seekto.write_cmd_offset);
 
 		g_data_file = fopen(SOCK_DATA_FILE, "r");
 		ioc_fd = fileno(g_data_file);
@@ -128,7 +129,10 @@ void *connection_thread_func(void* thread_param) {
 			fprintf(stderr, "ioctl err: %d\n", ioc_ret);
 		}
 
-		goto after_write;
+		free(dyn_recv_buf);
+		dyn_recv_buf = NULL;
+
+		goto do_send;
 	}
 #endif
 
@@ -142,9 +146,6 @@ void *connection_thread_func(void* thread_param) {
 		return thread_param;
 	}
 	fwrite(dyn_recv_buf, 1, recv_size_tot, g_data_file);
-
-after_write:
-
 	free(dyn_recv_buf);
 	dyn_recv_buf = NULL;
 	fclose(g_data_file);
@@ -155,9 +156,6 @@ after_write:
 
 	// Send back data from file
 	// Note: line-by-line read code learned from https://stackoverflow.com/questions/3501338/c-read-file-line-by-line
-	char *line = NULL;
-	size_t len = 0;
-	ssize_t read;
 #ifndef USE_AESD_CHAR_DEVICE
 	pthread_mutex_lock(&g_sockdata_mutex);
 #endif
@@ -166,6 +164,14 @@ after_write:
 		fprintf(stderr, "Couldn't open file\n");
 		return thread_param;
 	}
+
+do_send:
+
+	printf("Start send\n");
+	char *line = NULL;
+	size_t len = 0;
+	ssize_t read;
+	
 	while((read = getline(&line, &len, g_data_file)) != -1) {
 		if(send(tdata_ptr->accepted_sock_fd, line, read, 0) == SOCK_ERR) {
 			fprintf(stderr, "socket send err\n");
