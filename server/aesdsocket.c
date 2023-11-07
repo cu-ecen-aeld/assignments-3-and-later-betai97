@@ -40,6 +40,10 @@ pthread_mutex_t g_sockdata_mutex;
 
 SLIST_HEAD(tdata_head, tdata) g_head;
 
+const char *g_iocseek_str = "AESDCHAR_IOCSEEKTO";
+const int g_ioc_len = 18;
+const int g_ioc_x = 19;
+const int g_ioc_y = 21;
 
 // LL struct for each elem
 struct tdata {
@@ -115,9 +119,9 @@ void *connection_thread_func(void* thread_param) {
 	}
 
 #ifdef USE_AESD_CHAR_DEVICE
-	if(strncmp(dyn_recv_buf, "AESDCHAR_IOCSEEKTO", 18) == 0) {
-		seekto.write_cmd = dyn_recv_buf[19] - '0';
-		seekto.write_cmd_offset = dyn_recv_buf[21] - '0';
+	if(strncmp(dyn_recv_buf, g_iocseek_str, g_ioc_len) == 0) {
+		seekto.write_cmd = dyn_recv_buf[g_ioc_x] - '0';
+		seekto.write_cmd_offset = dyn_recv_buf[g_ioc_y] - '0';
 		printf("ioctl write cmd: %u, write_cmd_off: %u\n", seekto.write_cmd, seekto.write_cmd_offset);
 
 		g_data_file = fopen(SOCK_DATA_FILE, "r");
