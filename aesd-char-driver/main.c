@@ -21,6 +21,10 @@
 #include <linux/slab.h>
 #include <linux/errno.h>
 #include <linux/types.h>
+
+#include <linux/gpio.h>
+#include <linux/interrupt.h>
+
 #include "aesdchar.h"
 #include "aesd_ioctl.h"
 #include "access_ok_version.h" // taken from ldd3
@@ -31,6 +35,14 @@ MODULE_AUTHOR("Ben Tait");
 MODULE_LICENSE("Dual BSD/GPL");
 
 struct aesd_dev aesd_device;
+
+/*
+** Handler for GPIO pushbutton
+*/
+static irqreturn_t pushbutton_irq_handler(int irq,  void *dev_id) 
+{
+    // todo
+}
 
 int aesd_open(struct inode *inode, struct file *filp)
 {
@@ -360,6 +372,28 @@ int aesd_init_module(void)
      */
     mutex_init(&aesd_device.mut);
     aesd_circular_buffer_init(&aesd_device.circ_buf);
+
+    /*
+    ** set up gpio
+    */
+    /*
+    // set up gpio for all output pins we're using for leds
+    gpio_direction_output(4, 0);
+    pio_direction_output(5, 0);
+    ...
+
+    gpio_direction_input(24); // set input for pushbutton
+    GPIO_irqNumber = gpio_to_irq(24);
+    if (request_irq(GPIO_irqNumber,             
+                  (void *)pushbutton_irq_handlerpushbutton_irq_handler,                     IRQF_TRIGGER_RISING,       
+                  "aesd_dev",               
+                  NULL)) {                    
+    printk(KERN_ERR "aesd_dev: cannot register pushbutton IRQ ");
+    return -1;
+    }
+
+    */
+
 
     result = aesd_setup_cdev(&aesd_device);
 
