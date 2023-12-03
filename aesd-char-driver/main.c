@@ -39,10 +39,10 @@ struct aesd_dev aesd_device;
 /*
 ** Handler for GPIO pushbutton
 */
-static irqreturn_t pushbutton_irq_handler(int irq,  void *dev_id) 
-{
-    // todo
-}
+// static irqreturn_t pushbutton_irq_handler(int irq,  void *dev_id) 
+// {
+//     // todo
+// }
 
 int aesd_open(struct inode *inode, struct file *filp)
 {
