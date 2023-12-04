@@ -28,6 +28,10 @@
 #include "aesdchar.h"
 #include "aesd_ioctl.h"
 #include "access_ok_version.h" // taken from ldd3
+
+// gpio defines
+int gpio_pins[] = {5, 6, 12, 13, 16, 19, 20, 21, 25, 26};
+
 int aesd_major =   0; // use dynamic major
 int aesd_minor =   0;
 
@@ -352,12 +356,35 @@ static int aesd_setup_cdev(struct aesd_dev *dev)
     return err;
 }
 
+// Init a gpio pin for kernel usage
+void init_gpio_out(int gpio_pin)
+{
+    char label[10];
 
+    sprintf(label, "GPIO_%d", gpio_pin);
+
+    // Check GPIO valid
+    if(!gpio_is_valid(gpio_pin)) {
+        PDEBUG("GPIO pin %d not valid!\n", gpio_pin);
+        return;
+    }
+
+    // Request the GPIO pin
+    if(gpio_request(gpio_pin, (const char*) label) < 0) {
+        PDEBUG("GPIO pin %d reqest error!\n", gpio_pin);
+        gpio_free(gpio_pin);
+        return;
+    }
+
+    // Configure GPIO as an output
+    gpio_direction_output(gpio_pin, 0);
+}
 
 int aesd_init_module(void)
 {
     dev_t dev = 0;
     int result;
+    int i;
     result = alloc_chrdev_region(&dev, aesd_minor, 1,
             "aesdchar");
     aesd_major = MAJOR(dev);
@@ -373,26 +400,27 @@ int aesd_init_module(void)
     mutex_init(&aesd_device.mut);
     aesd_circular_buffer_init(&aesd_device.circ_buf);
 
-    /*
-    ** set up gpio
-    */
-    /*
-    // set up gpio for all output pins we're using for leds
-    gpio_direction_output(4, 0);
-    pio_direction_output(5, 0);
-    ...
-
-    gpio_direction_input(24); // set input for pushbutton
-    GPIO_irqNumber = gpio_to_irq(24);
-    if (request_irq(GPIO_irqNumber,             
-                  (void *)pushbutton_irq_handlerpushbutton_irq_handler,                     IRQF_TRIGGER_RISING,       
-                  "aesd_dev",               
-                  NULL)) {                    
-    printk(KERN_ERR "aesd_dev: cannot register pushbutton IRQ ");
-    return -1;
+    // /*
+    // ** set up gpio
+    // */
+    for(i=0; i<sizeof(gpio_pins)/sizeof(gpio_pins[0]); i++) {
+        init_gpio_out(gpio_pins[i]);
     }
 
-    */
+    // // set up gpio for all output pins we're using for leds
+    // gpio_direction_output(4, 0);
+    // pio_direction_output(5, 0);
+    // ...
+
+    // gpio_direction_input(24); // set input for pushbutton
+    // GPIO_irqNumber = gpio_to_irq(24);
+    // if (request_irq(GPIO_irqNumber,             
+    //               (void *)pushbutton_irq_handlerpushbutton_irq_handler,                     IRQF_TRIGGER_RISING,       
+    //               "aesd_dev",               
+    //               NULL)) {                    
+    // printk(KERN_ERR "aesd_dev: cannot register pushbutton IRQ ");
+    // return -1;
+    // }
 
 
     result = aesd_setup_cdev(&aesd_device);
