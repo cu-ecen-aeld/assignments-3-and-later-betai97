@@ -114,6 +114,8 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
         return -EFAULT;
     }
 
+    gpio_set_value(3, 0);
+
     mutex_unlock(&dev->mut);
 
     PDEBUG("aesd_read completed\n");
@@ -198,6 +200,8 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         dev->unterm.size = 0;
         dev->unterm.buffptr = NULL;
     }
+
+    gpio_set_value(3, 1);
 
     mutex_unlock(&dev->mut);
 
@@ -378,6 +382,10 @@ void init_gpio_out(int gpio_pin)
 
     // Configure GPIO as an output
     gpio_direction_output(gpio_pin, 0);
+
+    // let it be accessed by sysfs in /sys/class/gpio/
+    // i.e. can do - echo 1 > /sys/glass/gpio/gpio3/value
+    gpio_export(gpio_pin, false);
 }
 
 int aesd_init_module(void)
@@ -403,9 +411,10 @@ int aesd_init_module(void)
     // /*
     // ** set up gpio
     // */
-    for(i=0; i<sizeof(gpio_pins)/sizeof(gpio_pins[0]); i++) {
-        init_gpio_out(gpio_pins[i]);
-    }
+    // for(i=0; i<sizeof(gpio_pins)/sizeof(gpio_pins[0]); i++) {
+    //     init_gpio_out(gpio_pins[i]);
+    // }
+    init_gpio_out(3);
 
     // // set up gpio for all output pins we're using for leds
     // gpio_direction_output(4, 0);
