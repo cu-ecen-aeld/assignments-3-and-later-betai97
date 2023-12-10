@@ -29,8 +29,14 @@
 #include "aesd_ioctl.h"
 #include "access_ok_version.h" // taken from ldd3
 
+#define LEDS_LARGE_ENTRY_SIZE 20 // Size at which we use red LED instead of green
+#define LEDS_PER_ENTRY 2 // number of LEDs per circ buf entry
+
 // gpio defines
-int gpio_pins[] = {5, 6, 12, 13, 16, 19, 20, 21, 25, 26};
+// first entry is green led. second is red
+int gpio_pins[AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED][LEDS_PER_ENTRY] = {{2,3}, {4, 14}, {17,15}, {18, 27}, \
+                    {22, 23}, {24, 10}, {9, 25}, {11, 8}, \
+                    {7, 5}, {6, 12}};
 
 int aesd_major =   0; // use dynamic major
 int aesd_minor =   0;
@@ -39,6 +45,8 @@ MODULE_AUTHOR("Ben Tait");
 MODULE_LICENSE("Dual BSD/GPL");
 
 struct aesd_dev aesd_device;
+
+void show_leds(struct aesd_circular_buffer *buffer);
 
 /*
 ** Handler for GPIO pushbutton
@@ -113,8 +121,6 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
         mutex_unlock(&dev->mut);
         return -EFAULT;
     }
-
-    gpio_set_value(3, 0);
 
     mutex_unlock(&dev->mut);
 
@@ -201,7 +207,8 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         dev->unterm.buffptr = NULL;
     }
 
-    gpio_set_value(3, 1);
+    // show cbuffer state on LEDs
+    show_leds(&dev->circ_buf);
 
     mutex_unlock(&dev->mut);
 
@@ -388,6 +395,30 @@ void init_gpio_out(int gpio_pin)
     gpio_export(gpio_pin, false);
 }
 
+// Light up the LEDs
+void show_leds(struct aesd_circular_buffer *buffer)
+{
+    int i;
+    struct aesd_buffer_entry *entry;
+
+    AESD_CIRCULAR_BUFFER_FOREACH(entry, buffer, i) {
+        if(entry->buffptr != NULL) {
+            if(entry->size >= LEDS_LARGE_ENTRY_SIZE) {
+                gpio_set_value(gpio_pins[i][1], 1);
+                gpio_set_value(gpio_pins[i][0], 0);
+            } else if(entry->size >= LEDS_LARGE_ENTRY_SIZE && entry->size >= 0) {
+                gpio_set_value(gpio_pins[i][1], 0);
+                gpio_set_value(gpio_pins[i][0], 1);
+            } else {
+                PDEBUG("show_leds(): unexpected error!\n");
+            }
+        } else {
+            gpio_set_value(gpio_pins[i][1], 0);
+            gpio_set_value(gpio_pins[i][0], 0);
+        }
+    }
+}
+
 int aesd_init_module(void)
 {
     dev_t dev = 0;
@@ -408,13 +439,13 @@ int aesd_init_module(void)
     mutex_init(&aesd_device.mut);
     aesd_circular_buffer_init(&aesd_device.circ_buf);
 
-    // /*
-    // ** set up gpio
-    // */
-    // for(i=0; i<sizeof(gpio_pins)/sizeof(gpio_pins[0]); i++) {
-    //     init_gpio_out(gpio_pins[i]);
-    // }
-    init_gpio_out(3);
+    /*
+    ** set up gpio
+    */
+    for(i=0; i<sizeof(gpio_pins)/sizeof(gpio_pins[0]); i++) {
+        init_gpio_out(gpio_pins[i][0]);
+        init_gpio_out(gpio_pins[i][1]);
+    }
 
     // // set up gpio for all output pins we're using for leds
     // gpio_direction_output(4, 0);
