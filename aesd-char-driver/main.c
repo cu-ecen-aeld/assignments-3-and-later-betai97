@@ -34,7 +34,7 @@
 
 // gpio defines
 // first entry is green led. second is red
-int gpio_pins[AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED][LEDS_PER_ENTRY] = {{2,3}, {4, 14}, {17,15}, {18, 27}, \
+int gpio_pins[AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED][LEDS_PER_ENTRY] = {{2,3}, {4, 14}, {17,15}}; //, {18, 27}, \
                     {22, 23}, {24, 10}, {9, 25}, {11, 8}, \
                     {7, 5}, {6, 12}};
 
@@ -393,6 +393,9 @@ void init_gpio_out(int gpio_pin)
     // let it be accessed by sysfs in /sys/class/gpio/
     // i.e. can do - echo 1 > /sys/glass/gpio/gpio3/value
     gpio_export(gpio_pin, false);
+
+    // Set value to off
+    gpio_set_value(gpio_pin, 0);
 }
 
 // Light up the LEDs
