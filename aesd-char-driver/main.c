@@ -409,7 +409,7 @@ void show_leds(struct aesd_circular_buffer *buffer)
             if(entry->size >= LEDS_LARGE_ENTRY_SIZE) {
                 gpio_set_value(gpio_pins[i][1], 1);
                 gpio_set_value(gpio_pins[i][0], 0);
-            } else if(entry->size >= LEDS_LARGE_ENTRY_SIZE && entry->size >= 0) {
+            } else if(entry->size <= LEDS_LARGE_ENTRY_SIZE && entry->size >= 0) {
                 gpio_set_value(gpio_pins[i][1], 0);
                 gpio_set_value(gpio_pins[i][0], 1);
             } else {
