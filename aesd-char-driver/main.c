@@ -77,12 +77,18 @@ static irqreturn_t pushbutton_irq_handler(int irq, void *dev_id)
     local_irq_save(irq_flags);
 
     // clear content of circ buffer
+    mutex_lock(&aesd_device.mut);
     AESD_CIRCULAR_BUFFER_FOREACH(entry, &aesd_device.circ_buf, i) {
         if(entry->buffptr != NULL) {
             kfree(entry->buffptr);
         }
     }
     memset(&aesd_device.circ_buf,0,sizeof(struct aesd_circular_buffer));
+
+    // display cleared LEDs
+    show_leds(&aesd_device.circ_buf);
+
+    mutex_unlock(&aesd_device.mut);
 
     // restore interrupts
     local_irq_restore(irq_flags);
