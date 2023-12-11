@@ -18,6 +18,8 @@
 #include <stdbool.h>
 #include <time.h>
 #include <sys/time.h>
+#include <string.h>
+#include "../aesd-char-driver/aesd_ioctl.h"
 
 // Build switch for whether to use our char driver
 #define USE_AESD_CHAR_DEVICE 1
@@ -38,6 +40,10 @@ pthread_mutex_t g_sockdata_mutex;
 
 SLIST_HEAD(tdata_head, tdata) g_head;
 
+const char *g_iocseek_str = "AESDCHAR_IOCSEEKTO";
+const int g_ioc_len = 18;
+const int g_ioc_x = 19;
+const int g_ioc_y = 21;
 
 // LL struct for each elem
 struct tdata {
@@ -92,6 +98,8 @@ void *connection_thread_func(void* thread_param) {
 	int recv_size_tot = 0;
 	int contains_newlin = 0;
 	char recv_buf[RECV_BUF_LEN] = {0};
+	struct aesd_seekto seekto;
+	int ioc_ret = 0, ioc_fd = 0;;
 	while(1) {
 		recv_size = (int) recv(tdata_ptr->accepted_sock_fd, recv_buf, RECV_BUF_LEN, 0);
 		recv_size_tot += recv_size;
@@ -109,6 +117,28 @@ void *connection_thread_func(void* thread_param) {
 		}
 		memset(recv_buf, 0, RECV_BUF_LEN);
 	}
+
+#ifdef USE_AESD_CHAR_DEVICE
+	if(strncmp(dyn_recv_buf, g_iocseek_str, g_ioc_len) == 0) {
+		seekto.write_cmd = dyn_recv_buf[g_ioc_x] - '0';
+		seekto.write_cmd_offset = dyn_recv_buf[g_ioc_y] - '0';
+		printf("ioctl write cmd: %u, write_cmd_off: %u\n", seekto.write_cmd, seekto.write_cmd_offset);
+
+		g_data_file = fopen(SOCK_DATA_FILE, "r");
+		ioc_fd = fileno(g_data_file);
+
+		ioc_ret = ioctl(ioc_fd, AESDCHAR_IOCSEEKTO, &seekto);
+
+		if(ioc_ret != 0) {
+			fprintf(stderr, "ioctl err: %d\n", ioc_ret);
+		}
+
+		free(dyn_recv_buf);
+		dyn_recv_buf = NULL;
+
+		goto do_send;
+	}
+#endif
 
 	// Write packet to file
 #ifndef USE_AESD_CHAR_DEVICE
@@ -130,9 +160,6 @@ void *connection_thread_func(void* thread_param) {
 
 	// Send back data from file
 	// Note: line-by-line read code learned from https://stackoverflow.com/questions/3501338/c-read-file-line-by-line
-	char *line = NULL;
-	size_t len = 0;
-	ssize_t read;
 #ifndef USE_AESD_CHAR_DEVICE
 	pthread_mutex_lock(&g_sockdata_mutex);
 #endif
@@ -141,6 +168,14 @@ void *connection_thread_func(void* thread_param) {
 		fprintf(stderr, "Couldn't open file\n");
 		return thread_param;
 	}
+
+do_send:
+
+	printf("Start send\n");
+	char *line = NULL;
+	size_t len = 0;
+	ssize_t read;
+	
 	while((read = getline(&line, &len, g_data_file)) != -1) {
 		if(send(tdata_ptr->accepted_sock_fd, line, read, 0) == SOCK_ERR) {
 			fprintf(stderr, "socket send err\n");
