@@ -22,6 +22,7 @@
 #include <linux/errno.h>
 #include <linux/types.h>
 
+#include <linux/jiffies.h> // use for debouncing of pushbutton switch
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
 
@@ -31,12 +32,19 @@
 
 #define LEDS_LARGE_ENTRY_SIZE 20 // Size at which we use red LED instead of green
 #define LEDS_PER_ENTRY 2 // number of LEDs per circ buf entry
+#define PUSHBTN_PIN 21
+
+#define MSEC_PER_SEC 1000
+#define PUSHBTN_DEBOUNCE_TIMOUT_MSEC 500
 
 // gpio defines
 // first entry is green led. second is red
-int gpio_pins[AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED][LEDS_PER_ENTRY] = {{2,3}, {4, 14}, {17,15}}; //, {18, 27}, \
-                    {22, 23}, {24, 10}, {9, 25}, {11, 8}, \
-                    {7, 5}, {6, 12}};
+int gpio_pins[AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED][LEDS_PER_ENTRY] = {{2,3}, {4, 14}, {17,15}};
+
+unsigned int pushbutton_irq_num;
+extern unsigned long volatile jiffies;
+unsigned long prev_jiffies = 0;
+
 
 int aesd_major =   0; // use dynamic major
 int aesd_minor =   0;
@@ -51,10 +59,36 @@ void show_leds(struct aesd_circular_buffer *buffer);
 /*
 ** Handler for GPIO pushbutton
 */
-// static irqreturn_t pushbutton_irq_handler(int irq,  void *dev_id) 
-// {
-//     // todo
-// }
+static irqreturn_t pushbutton_irq_handler(int irq, void *dev_id)
+{
+    static unsigned long irq_flags = 0;
+    int i;
+    struct aesd_buffer_entry *entry;
+
+    // handle debouncing
+    unsigned long diff_jiffies = jiffies - prev_jiffies;
+    unsigned long diff_msec = (jiffies * MSEC_PER_SEC) / HZ;
+    if(diff_msec < PUSHBTN_DEBOUNCE_TIMOUT_MSEC) {
+        return IRQ_HANDLED;
+    }
+    prev_jiffies = jiffies;
+
+    // disable interrupts
+    local_irq_save(irq_flags);
+
+    // clear content of circ buffer
+    AESD_CIRCULAR_BUFFER_FOREACH(entry, &aesd_device.circ_buf, i) {
+        if(entry->buffptr != NULL) {
+            kfree(entry->buffptr);
+        }
+    }
+    memset(&aesd_device.circ_buf,0,sizeof(struct aesd_circular_buffer));
+
+    // restore interrupts
+    local_irq_restore(irq_flags);
+
+    return IRQ_HANDLED;
+}
 
 int aesd_open(struct inode *inode, struct file *filp)
 {
@@ -398,6 +432,22 @@ void init_gpio_out(int gpio_pin)
     gpio_set_value(gpio_pin, 0);
 }
 
+// free all gpio
+void free_used_gpio(void)
+{
+    int i;
+
+    // free gpio IRQ
+    free_irq(pushbutton_irq_num, NULL);
+
+    // free gpio pins
+    gpio_free(PUSHBTN_PIN);
+    for(i=0; i<sizeof(gpio_pins)/sizeof(gpio_pins[0]); i++) {
+        gpio_free(gpio_pins[i][0]);
+        gpio_free(gpio_pins[i][1]);
+    }
+}
+
 // Light up the LEDs
 void show_leds(struct aesd_circular_buffer *buffer)
 {
@@ -443,27 +493,24 @@ int aesd_init_module(void)
     aesd_circular_buffer_init(&aesd_device.circ_buf);
 
     /*
-    ** set up gpio
+    ** set up gpio outputs
     */
     for(i=0; i<sizeof(gpio_pins)/sizeof(gpio_pins[0]); i++) {
         init_gpio_out(gpio_pins[i][0]);
         init_gpio_out(gpio_pins[i][1]);
     }
 
-    // // set up gpio for all output pins we're using for leds
-    // gpio_direction_output(4, 0);
-    // pio_direction_output(5, 0);
-    // ...
-
-    // gpio_direction_input(24); // set input for pushbutton
-    // GPIO_irqNumber = gpio_to_irq(24);
-    // if (request_irq(GPIO_irqNumber,             
-    //               (void *)pushbutton_irq_handlerpushbutton_irq_handler,                     IRQF_TRIGGER_RISING,       
-    //               "aesd_dev",               
-    //               NULL)) {                    
-    // printk(KERN_ERR "aesd_dev: cannot register pushbutton IRQ ");
-    // return -1;
-    // }
+    /*
+    ** set up pushbutton and its IRQ
+    */
+    gpio_direction_input(PUSHBTN_PIN); // set input for pushbutton
+    pushbutton_irq_num = gpio_to_irq(PUSHBTN_PIN);
+    PDEBUG("Pusbutton IRQ Num: %d\n", pushbutton_irq_num);
+    if (request_irq(pushbutton_irq_num, (void *)pushbutton_irq_handler,
+                  IRQF_TRIGGER_RISING, "aesd_dev", NULL)) {
+        printk(KERN_ERR "aesd_dev: cannot register pushbutton IRQ ");
+        return -1;
+    }
 
 
     result = aesd_setup_cdev(&aesd_device);
@@ -478,6 +525,8 @@ int aesd_init_module(void)
 void aesd_cleanup_module(void)
 {
     dev_t devno = MKDEV(aesd_major, aesd_minor);
+
+    free_used_gpio();
 
     cdev_del(&aesd_device.cdev);
 
